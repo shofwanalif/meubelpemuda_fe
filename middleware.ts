@@ -74,5 +74,5 @@ export async function middleware(request: NextRequest) {
 
 // Tentukan rute mana saja yang HARUS melewati middleware ini
 export const config = {
-  matcher: ["/owner/:path*", "/karyawan/:path*", "/login"],
+  matcher: [],
 };
