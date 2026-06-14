@@ -26,14 +26,32 @@ async function getSessionFromServer(req: NextRequest) {
 
   try {
     // Panggil endpoint /api/auth/get-session (Bawaan Better Auth di backend)
-    const response = await fetch(`${apiUrl}/api/auth/get-session`, {
+    const urlToFetch = `${apiUrl}/api/auth/get-session`;
+    console.log("[Middleware] Fetching session from:", urlToFetch);
+    console.log("[Middleware] Headers sent:", {
+      Origin: fetchHeaders.get("Origin"),
+      UserAgent: fetchHeaders.get("User-Agent"),
+      CookieLength: cookieHeader.length
+    });
+
+    const response = await fetch(urlToFetch, {
       method: "GET",
       headers: fetchHeaders,
     });
 
-    if (!response.ok) return null;
-    return await response.json(); // Mengembalikan object { session, user }
+    console.log("[Middleware] Response status:", response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "no text");
+      console.error("[Middleware] Fetch failed with status:", response.status, errorText);
+      return null;
+    }
+    
+    const data = await response.json(); 
+    console.log("[Middleware] Session data retrieved successfully");
+    return data;
   } catch (error) {
+    console.error("[Middleware] Exception in getSessionFromServer:", error);
     return null;
   }
 }
