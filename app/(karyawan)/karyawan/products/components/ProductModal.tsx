@@ -1,12 +1,16 @@
 "use client";
 
-import { Modal, Form, Input, InputNumber, Divider } from "antd";
-import { useEffect } from "react";
+import { Modal, Form, Input, InputNumber, Select, Divider } from "antd";
+import { useEffect, useState } from "react";
 import { Product } from "@/services/product.service";
+import { Branches } from "@/services/branch.service";
+import { useGetCategories } from "@/hooks/queries/useCategories";
 
 interface ProductModalProps {
   open: boolean;
   initialValues: Product | null;
+  branches?: Branches[];
+  isOwner: boolean;
   onCancel: () => void;
   onFinish: (values: any) => void;
   loading: boolean;
@@ -15,33 +19,60 @@ interface ProductModalProps {
 export function ProductModal({
   open,
   initialValues,
+  branches,
+  isOwner,
   onCancel,
   onFinish,
   loading,
 }: ProductModalProps) {
   const [form] = Form.useForm();
+  const [selectedBranchId, setSelectedBranchId] = useState<string | undefined>(
+    undefined,
+  );
+
+  // Ambil kategori berdasarkan cabang yang dipilih (owner) atau semua (karyawan)
+  const { data: categoriesRes } = useGetCategories(
+    {
+      page: 1,
+      limit: 999,
+      branchId: isOwner ? selectedBranchId : undefined,
+    },
+    { enabled: isOwner ? !!selectedBranchId : true },
+  );
+
+  const categoryOptions =
+    categoriesRes?.data?.map((c) => ({
+      label: c.name,
+      value: c.id,
+    })) ?? [];
 
   useEffect(() => {
     if (open) {
       if (initialValues) {
-        // SUPER TELITI: Mapping data dari objek 'price' tunggal milik karyawan
+        const branchId = initialValues.branch?.id;
+        setSelectedBranchId(branchId);
         form.setFieldsValue({
-          name: initialValues.name,
-          unit: initialValues.unit,
-          description: initialValues.description,
-          // Ambil dari price object (sesuai response API karyawan)
-          costPrice: initialValues.price
-            ? Number(initialValues.price.costPrice)
-            : undefined,
-          sellPrice: initialValues.price
-            ? Number(initialValues.price.sellPrice)
-            : undefined,
+          name: initialValues.name ?? undefined,
+          description: initialValues.description ?? undefined,
+          categoryId: initialValues.category?.id ?? undefined,
+          costPrice:
+            Number(initialValues.activePrice?.costPrice || 0) || undefined,
+          sellPrice:
+            Number(initialValues.activePrice?.sellPrice || 0) || undefined,
+          stock: initialValues.stock ?? undefined,
+          branchId: initialValues.branch?.id ?? undefined,
         });
       } else {
         form.resetFields();
+        setSelectedBranchId(undefined);
       }
     }
   }, [open, initialValues, form]);
+
+  const handleBranchChange = (value: string | undefined) => {
+    setSelectedBranchId(value);
+    form.setFieldValue("categoryId", undefined);
+  };
 
   return (
     <Modal
@@ -62,13 +93,6 @@ export function ProductModal({
         >
           <Input placeholder="Contoh: Meja Kayu Jati" size="large" />
         </Form.Item>
-        <Form.Item
-          name="unit"
-          label="Unit"
-          rules={[{ required: true, message: "Wajib" }]}
-        >
-          <Input placeholder="Pcs/Set" size="large" />
-        </Form.Item>
 
         <Form.Item name="description" label="Deskripsi">
           <Input.TextArea
@@ -78,39 +102,89 @@ export function ProductModal({
           />
         </Form.Item>
 
-        <Divider orientation="horizontal">Informasi Harga</Divider>
+        {isOwner && (
+          <Form.Item
+            name="branchId"
+            label="Cabang"
+            rules={[{ required: true, message: "Pilih cabang" }]}
+          >
+            <Select
+              placeholder="Pilih cabang"
+              options={branches?.map((b) => ({ label: b.name, value: b.id }))}
+              onChange={handleBranchChange}
+              allowClear
+              size="large"
+            />
+          </Form.Item>
+        )}
+
+        <Form.Item
+          name="categoryId"
+          label="Kategori"
+          rules={[{ required: true, message: "Pilih kategori" }]}
+        >
+          <Select
+            placeholder={
+              isOwner && !selectedBranchId
+                ? "Pilih cabang terlebih dahulu"
+                : "Pilih kategori"
+            }
+            options={categoryOptions}
+            disabled={isOwner && !selectedBranchId}
+            size="large"
+          />
+        </Form.Item>
+
+        <Divider orientation="horizontal">Harga & Stok</Divider>
 
         <Form.Item
           name="costPrice"
           label="Harga Modal (HPP)"
-          rules={[{ required: true, message: "Wajib diisi" }]}
+          rules={[{ required: true, message: "Wajib" }]}
+          className="flex-1"
         >
           <InputNumber
-            placeholder="Rp 0"
-            style={{ width: "100%" }}
+            placeholder="0"
             formatter={(value) =>
               `Rp ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
             }
             parser={(value) => value!.replace(/Rp\s?|(,*)/g, "")}
             controls={false}
             size="large"
+            style={{ width: "100%" }}
           />
         </Form.Item>
 
         <Form.Item
           name="sellPrice"
           label="Harga Jual"
-          rules={[{ required: true, message: "Wajib diisi" }]}
+          rules={[{ required: true, message: "Wajib" }]}
         >
           <InputNumber
-            placeholder="Rp 0"
-            style={{ width: "100%" }}
+            placeholder="0"
             formatter={(value) =>
               `Rp ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
             }
             parser={(value) => value!.replace(/Rp\s?|(,*)/g, "")}
             controls={false}
             size="large"
+            style={{ width: "100%" }}
+          />
+        </Form.Item>
+
+        <Form.Item
+          name="stock"
+          label="Stok"
+          rules={[
+            { required: !isOwner, message: "Stok awal wajib diisi" },
+            { type: "number", min: 0, message: "Stok tidak boleh negatif" },
+          ]}
+        >
+          <InputNumber
+            placeholder="Jumlah stok"
+            size="large"
+            style={{ width: "100%" }}
+            min={0}
           />
         </Form.Item>
       </Form>

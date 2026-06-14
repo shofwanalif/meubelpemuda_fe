@@ -15,6 +15,13 @@ export function useGetSalesSummary(params: SalesSummaryParams) {
   });
 }
 
+export function useGetSalesMonthly() {
+  return useQuery({
+    queryKey: ["sales", "monthly"],
+    queryFn: () => salesService.getMonthlySummary(),
+  });
+}
+
 export function useGetSales(params: SaleParams) {
   return useQuery({
     queryKey: ["sales", params],
@@ -38,6 +45,16 @@ export function useCreateSale() {
     mutationFn: (payload: CreateSalePayload) => salesService.create(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales", "summary"] });
+    },
+  });
+}
+
+export function useCancelSale() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => salesService.cancel(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
     },
   });
 }

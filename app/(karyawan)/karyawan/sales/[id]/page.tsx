@@ -10,6 +10,7 @@ import {
   Typography,
   Spin,
   Space,
+  Tag,
 } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -19,37 +20,30 @@ const { Title, Text } = Typography;
 export default function SaleDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: saleRes, isLoading } = useGetSaleDetail(params.id as string);
-  const sale = saleRes?.data;
+  const { data: sale, isLoading } = useGetSaleDetail(params.id as string);
 
-  const formatRp = (val: string | number) =>
-    new Intl.NumberFormat("id-ID", {
+  const formatRp = (val: string | number | null | undefined) => {
+    if (val === null || val === undefined || val === "") return "Rp 0";
+    const num = typeof val === "string" ? Number(val) : val;
+    return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       maximumFractionDigits: 0,
-    }).format(Number(val));
+    }).format(num);
+  };
 
   const columns = [
     {
       title: "Produk",
       dataIndex: ["product", "name"],
       key: "productName",
-      render: (text: string, record: any) => (
-        <div>
-          <Text strong>{text}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: "12px" }}>
-            Unit: {record.product.unit}
-          </Text>
-        </div>
-      ),
+      render: (text: string) => <Text strong>{text}</Text>,
     },
     {
       title: "Qty",
       dataIndex: "qty",
       key: "qty",
       align: "center" as const,
-      render: (qty: string) => <Text>{qty}</Text>,
     },
     {
       title: "Harga Satuan",
@@ -59,34 +53,36 @@ export default function SaleDetailPage() {
       render: (val: string) => formatRp(val),
     },
     {
+      title: "Potongan",
+      dataIndex: "discountAmount",
+      key: "discount",
+      align: "right" as const,
+      render: (val: string) => formatRp(val),
+    },
+    {
       title: "Subtotal",
       key: "subtotal",
       align: "right" as const,
       render: (_: unknown, record: any) => {
-        // Super Teliti: Handle totalSell null dari API
         const subtotal = record.totalSell
           ? Number(record.totalSell)
           : Number(record.qty) * Number(record.sellPriceSnapshot);
         return <Text strong>{formatRp(subtotal)}</Text>;
       },
     },
-    {
-      title: "Laba (Gross)",
-      dataIndex: "grossProfit",
-      key: "profit",
-      align: "right" as const,
-      render: (val: string) => <Text>{formatRp(val)}</Text>,
-    },
   ];
 
-  if (isLoading)
+  if (isLoading) {
     return (
       <div className="p-10 text-center">
         <Spin size="large" />
       </div>
     );
-  if (!sale)
+  }
+
+  if (!sale) {
     return <div className="p-10 text-center">Data tidak ditemukan</div>;
+  }
 
   return (
     <div className="md:px-6">
@@ -101,7 +97,8 @@ export default function SaleDetailPage() {
         </Space>
       </div>
 
-      <Card className="mb-6">
+      {/* Informasi Penjualan */}
+      <Card className="mb-6" variant="borderless">
         <Descriptions
           title="Informasi Penjualan"
           bordered
@@ -119,9 +116,43 @@ export default function SaleDetailPage() {
           <Descriptions.Item label="Catatan">
             {sale.notes || "-"}
           </Descriptions.Item>
+          <Descriptions.Item label="Total Penjualan">
+            {formatRp(sale.totalSell)}
+          </Descriptions.Item>
+          <Descriptions.Item label="Status">
+            <Tag
+              color={
+                sale.status.toLowerCase() === "completed" ? "green" : "red"
+              }
+            >
+              {sale.status.toLowerCase() === "completed"
+                ? "SELESAI"
+                : "DIBATALKAN"}
+            </Tag>
+          </Descriptions.Item>
         </Descriptions>
       </Card>
 
+      {/* Informasi Pelanggan */}
+      <Card className="mb-6" variant="borderless">
+        <Descriptions
+          title="Informasi Pelanggan"
+          bordered
+          column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }}
+        >
+          <Descriptions.Item label="Nama Pelanggan">
+            {sale.customer.name}
+          </Descriptions.Item>
+          <Descriptions.Item label="Alamat">
+            {sale.customer.address}
+          </Descriptions.Item>
+          <Descriptions.Item label="Telepon">
+            {sale.customer.phone}
+          </Descriptions.Item>
+        </Descriptions>
+      </Card>
+
+      {/* Daftar Produk */}
       <Card title="Daftar Produk Terjual" variant="borderless">
         <Table
           columns={columns}
@@ -135,18 +166,11 @@ export default function SaleDetailPage() {
             });
             return (
               <Table.Summary fixed>
-                <Table.Summary.Row>
-                  <Table.Summary.Cell index={0} colSpan={4} align="right">
-                    <Text strong>Total Laba Kotor:</Text>
-                  </Table.Summary.Cell>
-                  <Table.Summary.Cell index={1} align="right">
-                    <Text strong>{formatRp(totalProfit)}</Text>
-                  </Table.Summary.Cell>
-                </Table.Summary.Row>
+                <Table.Summary.Row></Table.Summary.Row>
               </Table.Summary>
             );
           }}
-          scroll={{ x: 1500 }}
+          scroll={{ x: 1000 }}
         />
       </Card>
     </div>

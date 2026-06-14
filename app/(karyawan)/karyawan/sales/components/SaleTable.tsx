@@ -1,7 +1,15 @@
 "use client";
 
-import { Table, Tag, Typography, Button, Tooltip } from "antd";
-import { EyeOutlined } from "@ant-design/icons";
+import {
+  Table,
+  Tag,
+  Typography,
+  Button,
+  Tooltip,
+  Space,
+  Popconfirm,
+} from "antd";
+import { EyeOutlined, CloseOutlined } from "@ant-design/icons";
 import { PaginationMeta } from "@/services/product.service";
 import { Sale } from "@/services/sale.service";
 import { ColumnsType } from "antd/es/table";
@@ -15,6 +23,7 @@ interface SaleTableProps {
   loading: boolean;
   meta?: PaginationMeta;
   onPageChange: (page: number, pageSize: number) => void;
+  onCancelSale: (id: string) => void;
 }
 
 export function SaleTable({
@@ -22,6 +31,7 @@ export function SaleTable({
   loading,
   meta,
   onPageChange,
+  onCancelSale,
 }: SaleTableProps) {
   const router = useRouter();
 
@@ -59,11 +69,15 @@ export function SaleTable({
       key: "cashier",
     },
     {
-      title: "Item",
-      dataIndex: "itemCount",
-      key: "itemCount",
-      align: "center",
-      render: (count: number) => <Text>{count} Jenis</Text>,
+      title: "Catatan",
+      dataIndex: "notes",
+      key: "notes",
+      render: (notes: string) => <Text>{notes || "-"}</Text>,
+    },
+    {
+      title: "Customer",
+      dataIndex: ["customer", "name"],
+      key: "customer",
     },
     {
       title: "Total Penjualan",
@@ -73,11 +87,15 @@ export function SaleTable({
       render: (val: number) => <Text>{formatRp(val)}</Text>,
     },
     {
-      title: "Laba Kotor",
-      dataIndex: "grossProfit",
-      key: "grossProfit",
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status: string) => (
+        <Tag color={status.toLowerCase() === "completed" ? "green" : "red"}>
+          {status.toLowerCase() === "completed" ? "SELESAI" : "DIBATALKAN"}
+        </Tag>
+      ),
       align: "right",
-      render: (val: number) => <Text>{formatRp(val)}</Text>,
     },
     {
       title: "Aksi",
@@ -85,13 +103,34 @@ export function SaleTable({
       align: "center",
       width: 140,
       render: (_, record) => (
-        <Tooltip title="Lihat Detail Transaksi">
-          <Button
-            type="primary"
-            icon={<EyeOutlined />}
-            onClick={() => router.push(`/karyawan/sales/${record.id}`)}
-          />
-        </Tooltip>
+        <Space>
+          <Tooltip title="Lihat Detail Transaksi">
+            <Button
+              type="primary"
+              icon={<EyeOutlined />}
+              onClick={() => router.push(`/karyawan/sales/${record.id}`)}
+            />
+          </Tooltip>
+          <Tooltip title="Batalkan Transaksi">
+            <Popconfirm
+              title="Konfirmasi Pembatalan"
+              description="Apakah Anda yakin ingin membatalkan transaksi ini?"
+              onConfirm={() => {
+                onCancelSale(record.id);
+              }}
+              okText="Ya, Batalkan"
+              cancelText="Tidak"
+              disabled={record.status.toLowerCase() === "cancelled"}
+            >
+              <Button
+                danger
+                type="primary"
+                icon={<CloseOutlined />}
+                disabled={record.status.toLowerCase() === "cancelled"}
+              />
+            </Popconfirm>
+          </Tooltip>
+        </Space>
       ),
     },
   ];
@@ -103,14 +142,7 @@ export function SaleTable({
       loading={loading}
       rowKey="id"
       bordered
-      pagination={{
-        current: meta?.current_page,
-        pageSize: meta?.page_size,
-        total: meta?.total,
-        onChange: onPageChange,
-        showSizeChanger: true,
-        showTotal: (total) => `Total ${total} transaksi`,
-      }}
+      pagination={false}
       scroll={{ x: 1000 }}
     />
   );

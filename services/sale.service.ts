@@ -10,7 +10,7 @@ export interface SalesSummaryParams {
 
 export interface SaleParams {
   page: number;
-  pageSize: number;
+  limit: number;
   search?: string;
   branchId?: string;
   startDate?: string;
@@ -27,50 +27,80 @@ export interface SaleUser {
   name: string;
 }
 
+export interface SaleCustomer {
+  name: string;
+}
+
+export interface SaleCustomerDetail {
+  name: string;
+  address: string;
+  phone: string;
+}
+
+// Sale untuk list (ringkas)
 export interface Sale {
   id: string;
   saleDate: string;
-  notes: string;
+  status: string;
+  notes?: string | null;
+  customer: SaleCustomer;
   createdAt: string;
   branch: SaleBranch;
   createdBy: SaleUser;
-  totalSell: number;
-  grossProfit: number;
-  itemCount: number;
+  totalSell: string;
 }
 
+// Item untuk detail sale
 export interface SaleItem {
   id: string;
   qty: number;
-  sellPriceSnapshot: number;
-  costPriceSnapshot: number;
-  totalSell: number | null;
-  grossProfit: number;
+  sellPriceSnapshot: string;
+  discountAmount: string;
+  costPriceSnapshot: string;
+  totalSell: string | null;
+  grossProfit: string;
   product: {
     id: string;
     name: string;
-    unit: string;
   };
 }
 
-export interface SaleDetail extends Sale {
+// Detail sale (tidak extend Sale agar lebih eksplisit)
+export interface SaleDetail {
+  id: string;
+  saleDate: string;
+  status: string;
+  notes?: string | null;
+  createdAt: string;
+  customer: SaleCustomerDetail;
+  branch: SaleBranch;
+  createdBy: SaleUser;
+  totalSell: string;
+  totalGrossProfit: string;
   items: SaleItem[];
 }
 
+// --- Item dalam create sale (bisa punya discountAmount opsional) ---
 export interface CreateSaleItemPayload {
   productId: string;
   qty: number;
+  discountAmount?: number; // opsional, default 0
 }
 
+// --- Base create sale
 export interface BaseCreateSalePayload {
-  items: CreateSaleItemPayload[];
+  customerName: string;
+  customerAddress?: string;
+  customerPhone?: string;
   notes?: string;
+  items: CreateSaleItemPayload[];
 }
 
 export interface CreateOwnerSalePayload extends BaseCreateSalePayload {
   branchId: string;
 }
 
+// --- Karyawan: tidak perlu branchId
 export type CreateKaryawanSalePayload = BaseCreateSalePayload;
 
 export type CreateSalePayload =
@@ -79,16 +109,20 @@ export type CreateSalePayload =
 
 // 2. Interface untuk Data Statistik Penjualan
 export interface SalesSummaryData {
-  totalSales: number;
-  totalItems: string;
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  totalTransaksi: number;
+  totalTransaksiCancelled: string;
   totalRevenue: string;
-  totalCost: string;
   totalGrossProfit: string;
 }
 
-export interface APISalesSummaryResponse {
-  message: string;
-  data: SalesSummaryData;
+export interface SalesSummaryMonthlyData {
+  period: string;
+  totalRevenue: string;
+  totalGrossProfit: string;
 }
 
 export interface APISaleResponse {
@@ -97,19 +131,17 @@ export interface APISaleResponse {
   data: Sale[];
 }
 
-export interface APISaleDetailResponse {
-  message: string;
-  data: SaleDetail;
-}
-
 // 3. Service Object
 export const salesService = {
-  getSummary: async (
-    params: SalesSummaryParams,
-  ): Promise<APISalesSummaryResponse> => {
+  getSummary: async (params: SalesSummaryParams): Promise<SalesSummaryData> => {
     const response = await api.get("/api/sales/summary", {
-      params, // Axios otomatis merubah object ini menjadi query string (?branchId=...&startDate=...)
+      params,
     });
+    return response.data;
+  },
+
+  getMonthlySummary: async (): Promise<SalesSummaryMonthlyData[]> => {
+    const response = await api.get("/api/sales/summary/monthly");
     return response.data;
   },
 
@@ -120,13 +152,18 @@ export const salesService = {
     return response.data;
   },
 
-  getById: async (id: string): Promise<APISaleDetailResponse> => {
+  getById: async (id: string): Promise<SaleDetail> => {
     const response = await api.get(`/api/sales/${id}`);
     return response.data;
   },
 
   create: async (payload: CreateSalePayload) => {
     const response = await api.post("/api/sales/create", payload);
+    return response.data;
+  },
+
+  cancel: async (id: string) => {
+    const response = await api.patch(`/api/sales/cancel/${id}`);
     return response.data;
   },
 };

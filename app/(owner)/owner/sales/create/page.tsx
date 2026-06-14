@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Form,
@@ -28,36 +29,78 @@ export default function OwnerCreateSalePage() {
   const [form] = Form.useForm();
   const router = useRouter();
   const notification = useNotification();
+  const [selectedBranchId, setSelectedBranchId] = useState<
+    string | undefined
+  >();
 
-  // --- QUERIES & MUTATIONS ---
   const { data: branchRes } = useGetAllBranches();
-  // Tarik semua produk aktif untuk dipilih di form
-  const { data: productRes, isLoading: loadingProducts } = useGetProducts({
-    page: 1,
-    pageSize: 100,
-  });
+  const { data: productRes, isLoading: loadingProducts } = useGetProducts(
+    {
+      page: 1,
+      limit: 999,
+      branchId: selectedBranchId,
+    },
+    { enabled: !!selectedBranchId },
+  );
   const { mutate: createSale, isPending: submitting } = useCreateSale();
 
-  // --- HANDLER SUBMIT ---
   const onFinish = (values: any) => {
-    // Bersihkan payload dan pastikan qty berupa number murni
-    const payload = {
-      branchId: values.branchId,
-      notes: values.notes || undefined,
-      items: values.items.map((item: any) => ({
+    const items = values.items.map((item: any) => {
+      const itemPayload: any = {
         productId: item.productId,
         qty: Number(item.qty),
-      })),
+      };
+      if (item.discountAmount && Number(item.discountAmount) > 0) {
+        itemPayload.discountAmount = Number(item.discountAmount);
+      }
+      return itemPayload;
+    });
+
+    const payload: any = {
+      branchId: values.branchId,
+      customerName: values.customerName,
+      customerPhone: values.customerPhone || undefined,
+      customerAddress: values.customerAddress || undefined,
+      items,
     };
+    if (values.notes) payload.notes = values.notes;
 
     createSale(payload, {
       onSuccess: () => {
         notification.success({
-          message: "Transaksi penjualan berhasil dicatat",
+          title: "Transaksi penjualan berhasil dicatat",
         });
-        router.push("/owner/sales"); // Redirect kembali ke riwayat penjualan
+        router.push("/owner/sales");
+      },
+
+      onError: (error: any) => {
+        notification.error({
+          title:
+            error.response.data.message || "Gagal mencatat transaksi penjualan",
+        });
       },
     });
+  };
+
+  const handleBranchChange = (branchId: string | undefined) => {
+    setSelectedBranchId(branchId);
+    form.setFieldValue("items", []);
+  };
+
+  const productMap = new Map(productRes?.data?.map((p) => [p.id, p]) || []);
+
+  const formatRupiah = (value: number) =>
+    new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }).format(value);
+
+  const numberParser = (value: string | undefined) => {
+    if (!value) return 0;
+    const cleaned = value.replace(/Rp\s?|(,*)/g, "");
+    const num = Number(cleaned);
+    return isNaN(num) ? 0 : num;
   };
 
   return (
@@ -75,23 +118,20 @@ export default function OwnerCreateSalePage() {
         onFinish={onFinish}
         autoComplete="off"
       >
-        {/* --- KARTU INFORMASI UTAMA --- */}
-        <Card>
+        {/* INFORMASI CABANG & PELANGGAN */}
+        <Card title="Informasi Transaksi">
           <Form.Item
             name="branchId"
             label="Cabang Transaksi"
-            rules={[
-              {
-                required: true,
-                message: "Pilih cabang tempat transaksi terjadi",
-              },
-            ]}
+            rules={[{ required: true, message: "Pilih cabang" }]}
           >
             <Select
-              placeholder="Pilih Cabang Tujuan"
+              placeholder="Pilih Cabang"
               size="large"
               showSearch
               optionFilterProp="children"
+              onChange={handleBranchChange}
+              allowClear
             >
               {branchRes?.data?.map((b) => (
                 <Select.Option key={b.id} value={b.id}>
@@ -101,26 +141,46 @@ export default function OwnerCreateSalePage() {
             </Select>
           </Form.Item>
 
-          <Form.Item name="notes" label="Catatan Penjualan (Opsional)">
+          <Divider orientation="horizontal">Data Pelanggan</Divider>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Form.Item
+              name="customerName"
+              label="Nama Pelanggan"
+              rules={[{ required: true, message: "Wajib" }]}
+            >
+              <Input placeholder="Contoh: Siti Rahayu" size="large" />
+            </Form.Item>
+            <Form.Item name="customerPhone" label="Telepon (opsional)">
+              <Input placeholder="08123456789" size="large" />
+            </Form.Item>
+          </div>
+          <Form.Item name="customerAddress" label="Alamat (opsional)">
             <Input.TextArea
               rows={2}
-              placeholder="Masukkan deskripsi atau catatan tambahan transaksi..."
+              placeholder="Jl. Ahmad Yani No. 5"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item name="notes" label="Catatan (Opsional)">
+            <Input.TextArea
+              rows={2}
+              placeholder="Catatan tambahan..."
               size="large"
             />
           </Form.Item>
         </Card>
 
-        {/* --- KARTU DAFTAR ITEM --- */}
-        <Card title="Daftar Barang Belanja">
+        {/* DAFTAR PRODUK */}
+        <Card title="Daftar Barang" className="mt-4">
           <Form.List
             name="items"
             rules={[
               {
                 validator: async (_, names) => {
                   if (!names || names.length < 1) {
-                    return Promise.reject(
-                      new Error("Minimal harus ada 1 item yang terjual"),
-                    );
+                    return Promise.reject(new Error("Minimal 1 item"));
                   }
                 },
               },
@@ -131,43 +191,96 @@ export default function OwnerCreateSalePage() {
                 {fields.map(({ key, name, ...restField }) => (
                   <div
                     key={key}
-                    className="flex flex-col md:flex-row md:items-start gap-4 mb-4"
+                    className="flex flex-col md:flex-row md:items-start gap-4 p-3"
                   >
                     <Form.Item
                       {...restField}
                       name={[name, "productId"]}
-                      rules={[{ required: true, message: "Pilih produk" }]}
                       label="Produk"
+                      rules={[{ required: true, message: "Pilih produk" }]}
                       className="flex-1 mb-0"
                     >
                       <Select
-                        placeholder="Cari & Pilih Produk"
-                        size="large"
+                        placeholder={
+                          selectedBranchId
+                            ? "Cari produk"
+                            : "Pilih cabang terlebih dahulu"
+                        }
+                        disabled={!selectedBranchId}
                         loading={loadingProducts}
                         showSearch
+                        size="large"
                         optionFilterProp="children"
                       >
                         {productRes?.data?.map((p) => (
                           <Select.Option key={p.id} value={p.id}>
-                            {p.name} ({p.unit})
+                            {p.name} (Stok: {p.stock})
                           </Select.Option>
                         ))}
                       </Select>
                     </Form.Item>
 
                     <Form.Item
+                      noStyle
+                      shouldUpdate={(prev, curr) =>
+                        prev.items?.[name]?.productId !==
+                        curr.items?.[name]?.productId
+                      }
+                    >
+                      {({ getFieldValue }) => {
+                        const productId = getFieldValue([
+                          "items",
+                          name,
+                          "productId",
+                        ]);
+                        const product = productId
+                          ? productMap.get(productId)
+                          : null;
+                        if (!product) return null;
+                        const sellPrice = Number(product.activePrice.sellPrice);
+                        const costPrice = Number(product.activePrice.costPrice);
+                        return (
+                          <div className="flex flex-col gap-1 text-sm p-6 rounded">
+                            <span>
+                              Harga Jual:{" "}
+                              <strong>{formatRupiah(sellPrice)}</strong>
+                            </span>
+                            <span>Harga Modal: {formatRupiah(costPrice)}</span>
+                          </div>
+                        );
+                      }}
+                    </Form.Item>
+
+                    <Form.Item
                       {...restField}
                       name={[name, "qty"]}
+                      label="Qty"
                       rules={[{ required: true, message: "Wajib" }]}
-                      label="Jumlah (Qty)"
-                      className="w-full md:w-32 mb-0"
+                      className="w-full md:w-24 mb-0"
                     >
                       <InputNumber
                         min={1}
                         placeholder="0"
                         size="large"
-                        controls={false}
                         style={{ width: "100%" }}
+                      />
+                    </Form.Item>
+
+                    <Form.Item
+                      {...restField}
+                      name={[name, "discountAmount"]}
+                      label="Potongan"
+                      className="w-full md:w-32 mb-0"
+                    >
+                      <InputNumber
+                        min={0}
+                        placeholder="0"
+                        size="large"
+                        style={{ width: "100%" }}
+                        formatter={(value) =>
+                          `Rp ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={numberParser}
                       />
                     </Form.Item>
 
@@ -176,7 +289,7 @@ export default function OwnerCreateSalePage() {
                       danger
                       icon={<MinusCircleOutlined />}
                       onClick={() => remove(name)}
-                      className="md:mt-8 self-end md:self-auto"
+                      className="md:mt-8 self-end"
                     />
                   </div>
                 ))}
@@ -188,8 +301,9 @@ export default function OwnerCreateSalePage() {
                     block
                     icon={<PlusOutlined />}
                     size="large"
+                    disabled={!selectedBranchId}
                   >
-                    Tambah Item Belanja
+                    Tambah Item
                   </Button>
                   <Form.ErrorList
                     errors={errors}

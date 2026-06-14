@@ -5,6 +5,7 @@ import {
   WalletOutlined,
   BankOutlined,
   StockOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { SalesSummaryData } from "@/services/sale.service";
 
@@ -23,29 +24,18 @@ export function StatsCards({ data, loading }: StatsCardsProps) {
 
   const items = [
     {
-      title: "Total Penjualan",
-      value: data?.totalSales,
+      title: "Transaksi Berhasil",
+      value: data?.totalTransaksi,
       icon: <ShoppingCartOutlined />,
       color: "#1677ff",
-      suffix: "Transaksi",
+      suffix: " Transaksi",
     },
     {
-      title: "Pendapatan (Revenue)",
-      value: formatIDR(data?.totalRevenue),
-      icon: <WalletOutlined />,
-      color: "#52c41a",
-    },
-    {
-      title: "Total HPP (Cost)",
-      value: formatIDR(data?.totalCost),
-      icon: <BankOutlined />,
+      title: "Transaksi Dibatalkan",
+      value: data?.totalTransaksiCancelled,
+      icon: <StopOutlined />,
       color: "#f5222d",
-    },
-    {
-      title: "Laba Kotor (Profit)",
-      value: formatIDR(data?.totalGrossProfit),
-      icon: <StockOutlined />,
-      color: "#722ed1",
+      suffix: " Transaksi",
     },
   ];
 

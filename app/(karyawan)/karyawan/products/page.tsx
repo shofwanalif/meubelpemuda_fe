@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Typography, Button, Input } from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { Typography, Button, Input, Select, Pagination } from "antd";
+import {
+  PlusOutlined,
+  SearchOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
 
 // Hooks & Services
 import {
@@ -10,9 +14,8 @@ import {
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
-  useDeactivateProduct,
-  useActivateProduct,
 } from "@/hooks/queries/useProduct";
+import { useGetCategories } from "@/hooks/queries/useCategories";
 import { Product } from "@/services/product.service";
 import { useNotification } from "@/hooks/useMessage";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -27,8 +30,10 @@ export default function KaryawanProductPage() {
   const notification = useNotification();
 
   // --- STATE ---
-  // Default pageSize disesuaikan dengan permintaan sebelumnya yaitu 15
-  const [params, setParams] = useState({ page: 1, pageSize: 15, search: "" });
+  const [params, setParams] = useState({ page: 1, limit: 10, search: "" });
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>(
+    undefined,
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -36,30 +41,64 @@ export default function KaryawanProductPage() {
   const debouncedSearch = useDebounce(params.search, 500);
 
   // --- QUERIES ---
+  // Produk otomatis dari cabang karyawan (tidak perlu kirim branchId)
   const { data: productRes, isLoading } = useGetProducts({
-    ...params,
+    page: params.page,
+    limit: params.limit,
     search: debouncedSearch,
+    categoryId: categoryFilter,
+  });
+  // Kategori juga dari cabang karyawan (API mengambil berdasarkan session)
+  const { data: categoriesRes } = useGetCategories({
+    page: 1,
+    limit: 999,
   });
 
   // --- MUTATIONS ---
   const { mutate: createProduct, isPending: creating } = useCreateProduct();
   const { mutate: updateProduct, isPending: updating } = useUpdateProduct();
   const { mutate: deleteProduct } = useDeleteProduct();
-  const { mutate: deactivateProduct } = useDeactivateProduct();
-  const { mutate: activateProduct } = useActivateProduct();
 
   // --- HANDLERS ---
   const handlePageChange = (page: number, pageSize: number) => {
-    setParams((prev) => ({ ...prev, page, pageSize }));
+    setParams((prev) => ({ ...prev, page, limit: pageSize }));
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    deleteProduct(id, {
+      onSuccess: () => {
+        notification.success({
+          title: "Produk Berhasil Dihapus",
+          description: "Produk telah berhasil dihapus",
+        });
+      },
+      onError: (error: any) => {
+        notification.error({
+          title: "Gagal Menghapus Produk",
+          description:
+            error?.response?.data?.message ||
+            error.message ||
+            "Terjadi kesalahan",
+        });
+      },
+    });
+  };
+
+  const handleCategoryChange = (value: string | undefined) => {
+    setCategoryFilter(value);
+    setParams((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setParams((prev) => ({ ...prev, search: e.target.value, page: 1 }));
+  };
+
+  const handleResetFilters = () => {
+    setCategoryFilter(undefined);
+    setParams({ page: 1, limit: 10, search: "" });
   };
 
   const handleSubmit = (values: any) => {
-    const payload = {
-      ...values,
-      costPrice: Number(values.costPrice),
-      sellPrice: Number(values.sellPrice),
-    };
-
     const options = {
       onSuccess: () => {
         notification.success({
@@ -67,35 +106,34 @@ export default function KaryawanProductPage() {
         });
         setIsModalOpen(false);
       },
+      onError: (error: any) => {
+        notification.error({
+          title: "Gagal Menambahkan/Memperbarui Data",
+          description:
+            error?.response?.data?.message ||
+            error.message ||
+            "Terjadi kesalahan",
+        });
+      },
     };
 
     if (selectedProduct) {
-      updateProduct({ id: selectedProduct.id, data: payload }, options);
+      updateProduct({ id: selectedProduct.id, data: values }, options);
     } else {
-      createProduct(payload, options);
+      createProduct(values, options);
     }
   };
 
-  const handleStatusChange = (
-    id: string,
-    action: "activate" | "deactivate",
-  ) => {
-    const mutation =
-      action === "activate" ? activateProduct : deactivateProduct;
-
-    mutation(id, {
-      onSuccess: () => {
-        notification.success({
-          message: `Produk berhasil ${action === "activate" ? "diaktifkan" : "dinonaktifkan"}`,
-        });
-      },
-    });
-  };
+  const categoryOptions =
+    categoriesRes?.data?.map((cat) => ({
+      label: cat.name,
+      value: cat.id,
+    })) ?? [];
 
   return (
     <div className="md:px-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <Title level={3}>Manajemen Produk (Cabang)</Title>
+        <Title level={3}>Katalog Produk (Karyawan)</Title>
         <Button
           type="primary"
           icon={<PlusOutlined />}
@@ -109,16 +147,35 @@ export default function KaryawanProductPage() {
         </Button>
       </div>
 
-      <div className="flex justify-end mb-6">
-        <Input
-          placeholder="Cari produk..."
-          prefix={<SearchOutlined />}
-          className="max-w-xs"
-          allowClear
-          onChange={(e) =>
-            setParams((prev) => ({ ...prev, search: e.target.value, page: 1 }))
-          }
-        />
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div className="flex flex-wrap gap-2 items-center">
+          <Select
+            placeholder="Semua Kategori"
+            allowClear
+            style={{ width: 200 }}
+            onChange={handleCategoryChange}
+            value={categoryFilter}
+            options={categoryOptions}
+          />
+          <Button
+            icon={<ReloadOutlined />}
+            type="primary"
+            onClick={handleResetFilters}
+          >
+            Reset Filter
+          </Button>
+        </div>
+
+        <div className="w-full md:w-auto">
+          <Input
+            placeholder="Cari produk..."
+            prefix={<SearchOutlined />}
+            className="w-full md:w-64"
+            allowClear
+            onChange={handleSearchChange}
+            value={params.search}
+          />
+        </div>
       </div>
 
       <ProductTable
@@ -130,15 +187,37 @@ export default function KaryawanProductPage() {
           setSelectedProduct(record);
           setIsModalOpen(true);
         }}
-        onDelete={(id) => deleteProduct(id)}
-        onDeactivate={(id) => handleStatusChange(id, "deactivate")}
-        onActivate={(id) => handleStatusChange(id, "activate")}
+        onDelete={handleDeleteProduct}
       />
+
+      <div className="mt-4 flex flex-wrap justify-end items-center gap-2">
+        <Pagination
+          current={productRes?.meta?.current_page ?? 1}
+          pageSize={productRes?.meta?.page_size ?? 10}
+          total={productRes?.meta?.total ?? 0}
+          showSizeChanger={false}
+          size="small"
+          showTotal={(total) => `Total ${total} produk`}
+          onChange={handlePageChange}
+        />
+        <Select
+          value={params.limit}
+          onChange={(value) => handlePageChange(1, value)}
+          size="small"
+          options={[
+            { label: "10 / page", value: 10 },
+            { label: "20 / page", value: 20 },
+            { label: "50 / page", value: 50 },
+            { label: "100 / page", value: 100 },
+          ]}
+        />
+      </div>
 
       <ProductModal
         open={isModalOpen}
         initialValues={selectedProduct}
         loading={creating || updating}
+        isOwner={false}
         onCancel={() => setIsModalOpen(false)}
         onFinish={handleSubmit}
       />

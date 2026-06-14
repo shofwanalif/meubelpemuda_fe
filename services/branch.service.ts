@@ -28,7 +28,7 @@ export interface CreateBranch {
 export type UpdateBranch = Partial<CreateBranch>;
 
 export const branchService = {
-  getAll: async (): Promise<APIBranchResponse> => {
+  getAll: async (): Promise<APIBranchResponse | undefined> => {
     const response = await api.get("/api/branches/get-all-branches");
     return response.data;
   },

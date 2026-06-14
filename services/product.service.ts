@@ -8,55 +8,44 @@ export interface PaginationMeta {
   total: number;
 }
 
-// --- Detail Cabang ---
 export interface ProductBranch {
   id: string;
   name: string;
 }
 
-// --- REVISI: Struktur Harga untuk Owner (Array) ---
-export interface ProductPriceOwner {
+export interface ProductCategory {
   id: string;
-  costPrice: string;
-  sellPrice: string;
-  effectiveFrom: string;
-  createdAt: string;
-  productId: string;
-  branchId: string | null;
-  updatedById: string;
-  branch: ProductBranch | null;
+  name: string;
 }
 
-// --- Struktur Harga untuk Karyawan (Single Object) ---
-export interface ProductPriceKaryawan {
-  costPrice: string;
-  sellPrice: string;
-  source: string;
+export interface ActivePrice {
+  id: string;
+  costPrice: string; // string
+  sellPrice: string; // string
+  effectiveFrom: string; // ISO date
 }
 
-// --- Base Product ---
-export interface ProductBase {
+export interface Product {
   id: string;
   name: string;
   description: string;
-  unit: string;
+  stock: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  branch: ProductBranch;
+  category: ProductCategory;
+  activePrice: ActivePrice;
 }
 
-// --- Unified Product Type ---
-export type Product = ProductBase & {
-  prices?: ProductPriceOwner[]; // Muncul jika Owner
-  price?: ProductPriceKaryawan; // Muncul jika Karyawan
-};
-
-// --- Params & Response ---
 export interface ProductParams {
   page: number;
-  pageSize: number;
+  limit: number;
   search?: string;
+  branchId?: string;
+  categoryId?: string;
+  lowStock?: number;
 }
 
 export interface APIProductResponse {
@@ -65,55 +54,38 @@ export interface APIProductResponse {
   data: Product[];
 }
 
-// --- Interface untuk Harga di sisi Owner ---
-export interface CreateProductPriceOwner {
-  branchId?: string; // Jika tidak ada, maka dianggap harga global/pusat
-  costPrice: number;
-  sellPrice: number;
-}
-
-// --- Payload khusus Owner ---
 export interface CreateProductPayloadOwner {
+  branchId: string;
   name: string;
   description: string;
-  unit: string;
-  prices: CreateProductPriceOwner[];
+  categoryId: string;
+  costPrice: number;
+  sellPrice: number;
+  stock?: number;
 }
 
-// --- Payload khusus Karyawan ---
 export interface CreateProductPayloadKaryawan {
   name: string;
   description: string;
-  unit: string;
+  categoryId: string;
   costPrice: number;
   sellPrice: number;
+  stock: number;
 }
 
-// --- Gabungan Payload (Union) ---
 export type CreateProductPayload =
   | CreateProductPayloadOwner
   | CreateProductPayloadKaryawan;
 
-type UpdateInfo = Partial<Pick<ProductBase, "name" | "description" | "unit">>;
-
-export interface UpdateProductPriceOwner {
-  branchId: string | null; // null untuk harga global
-  costPrice: number;
-  sellPrice: number;
-}
-
-export interface UpdateProductPayloadOwner extends UpdateInfo {
-  prices?: UpdateProductPriceOwner[];
-}
-
-export interface UpdateProductPayloadKaryawan extends UpdateInfo {
+export interface UpdateProductPayload {
+  branchId?: string;
+  name?: string;
+  description?: string;
+  stock?: number;
+  categoryId?: string;
   costPrice?: number;
   sellPrice?: number;
 }
-
-export type UpdateProductPayload =
-  | UpdateProductPayloadOwner
-  | UpdateProductPayloadKaryawan;
 
 export const productService = {
   getAll: async (params: ProductParams): Promise<APIProductResponse> => {
@@ -128,18 +100,10 @@ export const productService = {
   },
 
   update: (id: string, data: UpdateProductPayload) => {
-    return api.put(`/api/products/update/${id}`, data);
+    return api.patch(`/api/products/update/${id}`, data);
   },
 
   delete: (id: string) => {
     return api.delete(`/api/products/delete/${id}`);
-  },
-
-  deactivate: (id: string) => {
-    return api.patch(`/api/products/deactivate/${id}`);
-  },
-
-  activate: (id: string) => {
-    return api.patch(`/api/products/activate/${id}`);
   },
 };

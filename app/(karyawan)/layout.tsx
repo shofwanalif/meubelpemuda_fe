@@ -20,6 +20,7 @@ import {
   IconLayoutDashboard,
   IconListDetails,
   IconReportMoney,
+  IconCopyCheck,
 } from "@tabler/icons-react";
 import {
   Button,
@@ -34,7 +35,6 @@ import {
   Grid,
 } from "antd";
 import { useThemeMode } from "@/providers/AppTheme";
-import { QueryClient } from "@tanstack/react-query";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -90,7 +90,7 @@ function SidebarContent({
   );
 }
 
-export default function OwnerLayout({
+export default function KaryawanLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -144,6 +144,7 @@ export default function OwnerLayout({
     if (path === "/karyawan") return "dashboard";
     if (path.startsWith("/karyawan/sales")) return "sales";
     if (path.startsWith("/karyawan/products")) return "products";
+    if (path.startsWith("/karyawan/category")) return "category";
     return "dashboard";
   };
 
@@ -151,6 +152,7 @@ export default function OwnerLayout({
     dashboard: "/karyawan",
     sales: "/karyawan/sales",
     products: "/karyawan/products",
+    category: "/karyawan/category",
   };
 
   const selectedKey = getSelectedKey(pathname);
@@ -183,6 +185,11 @@ export default function OwnerLayout({
           icon: <IconListDetails />,
           label: "Daftar Produk",
         },
+        {
+          key: "category",
+          icon: <IconCopyCheck />,
+          label: "Daftar Kategori",
+        },
       ],
     },
   ];
@@ -213,7 +220,7 @@ export default function OwnerLayout({
   };
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
+    <Layout style={{ height: "100vh", overflow: "hidden" }}>
       {/* Sider hanya tampil di desktop */}
       {!isMobile && (
         <Sider
@@ -226,6 +233,7 @@ export default function OwnerLayout({
             background: token.colorBgContainer,
             zIndex: 10,
             borderRight: `1px solid ${token.colorBorderSecondary}`,
+            overflow: "hidden",
           }}
         >
           <SidebarContent
@@ -262,7 +270,7 @@ export default function OwnerLayout({
         </Drawer>
       )}
 
-      <Layout>
+      <Layout style={{ overflow: "hidden" }}>
         <Header
           style={{
             padding: "0 24px 0 0",
@@ -273,6 +281,7 @@ export default function OwnerLayout({
             justifyContent: "space-between",
             boxShadow: "0 1px 4px rgba(0,21,41,0.08)",
             zIndex: 9,
+            flexShrink: 0,
           }}
         >
           <Space size={0}>
@@ -348,6 +357,7 @@ export default function OwnerLayout({
             margin: isMobile ? "12px" : "24px",
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
+            overflowY: "auto",
           }}
         >
           {children}

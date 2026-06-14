@@ -5,13 +5,17 @@ import { Typography } from "antd";
 
 // Hooks & Services
 import { SalesSummaryParams } from "@/services/sale.service";
-import { useGetSalesSummary } from "@/hooks/queries/useSale";
+import {
+  useGetSalesSummary,
+  useGetSalesMonthly,
+} from "@/hooks/queries/useSale";
 import { useGetAllBranches } from "@/hooks/queries/useBranch";
 import { useUserSession } from "@/hooks/queries/useAuth"; // Session hook kita sebelumnya
 
 // Components
 import { StatsCards } from "./components/StatsCards";
 import { DashboardFilters } from "./components/DashboardFilters";
+import { SalesMonthlyChart } from "./components/SalesMonthlyChart";
 
 const { Title, Text } = Typography;
 
@@ -31,6 +35,8 @@ export default function DashboardPage() {
   const { data: summary, isLoading: loadingSummary } =
     useGetSalesSummary(params);
   const { data: branches } = useGetAllBranches();
+  const { data: summaryMonthly, isLoading: loadingSummaryMonthly } =
+    useGetSalesMonthly();
 
   // Handler untuk update state sebagian (saat pilih tanggal atau cabang)
   const handleFilterChange = (newValues: Partial<SalesSummaryParams>) => {
@@ -63,7 +69,35 @@ export default function DashboardPage() {
         onReset={handleReset} // Pasang prop reset
       />
 
-      <StatsCards data={summary?.data} loading={loadingSummary} />
+      {summary?.period && (
+        <div className="mb-4">
+          <Text>
+            Periode:{"  "}
+            <Text type="secondary">
+              {new Date(summary.period.startDate).toLocaleDateString("id-ID", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}{" "}
+              -{" "}
+              {new Date(summary.period.endDate).toLocaleDateString("id-ID", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </Text>
+          </Text>
+        </div>
+      )}
+
+      <StatsCards data={summary} loading={loadingSummary} />
+
+      <div className="mt-8">
+        <SalesMonthlyChart
+          data={summaryMonthly}
+          loading={loadingSummaryMonthly}
+        />
+      </div>
     </div>
   );
 }

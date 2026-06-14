@@ -6,12 +6,16 @@ import {
   UpdateProductPayload,
 } from "@/services/product.service";
 
-export function useGetProducts(params: ProductParams) {
+// hooks/queries/useProduct.ts
+export function useGetProducts(
+  params: ProductParams,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
-    // Setiap kali page, pageSize, atau filter berubah, React Query akan refetch
     queryKey: ["products", params],
     queryFn: () => productService.getAll(params),
     staleTime: 60 * 1000,
+    ...options,
   });
 }
 
@@ -44,28 +48,6 @@ export function useDeleteProduct() {
 
   return useMutation({
     mutationFn: (id: string) => productService.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-    },
-  });
-}
-
-export function useDeactivateProduct() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => productService.deactivate(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-    },
-  });
-}
-
-export function useActivateProduct() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => productService.activate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
     },

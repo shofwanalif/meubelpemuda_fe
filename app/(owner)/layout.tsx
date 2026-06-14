@@ -22,6 +22,7 @@ import {
   IconBuildingStore,
   IconReportMoney,
   IconUsers,
+  IconCopyCheck,
 } from "@tabler/icons-react";
 import {
   Button,
@@ -148,6 +149,7 @@ export default function OwnerLayout({
     if (path.startsWith("/owner/products")) return "products";
     if (path.startsWith("/owner/sales")) return "sales";
     if (path.startsWith("/owner/user")) return "user";
+    if (path.startsWith("/owner/category")) return "category";
     return "dashboard";
   };
 
@@ -157,6 +159,7 @@ export default function OwnerLayout({
     products: "/owner/products",
     sales: "/owner/sales",
     user: "/owner/user",
+    category: "/owner/category",
   };
 
   const selectedKey = getSelectedKey(pathname);
@@ -195,6 +198,11 @@ export default function OwnerLayout({
           label: "Daftar Produk",
         },
         {
+          key: "category",
+          icon: <IconCopyCheck />,
+          label: "Daftar Kategori",
+        },
+        {
           key: "user",
           icon: <IconUsers />,
           label: "Daftar Karyawan",
@@ -229,7 +237,7 @@ export default function OwnerLayout({
   };
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
+    <Layout style={{ height: "100vh", overflow: "hidden" }}>
       {/* Sider hanya tampil di desktop */}
       {!isMobile && (
         <Sider
@@ -242,6 +250,7 @@ export default function OwnerLayout({
             background: token.colorBgContainer,
             zIndex: 10,
             borderRight: `1px solid ${token.colorBorderSecondary}`,
+            overflow: "hidden",
           }}
         >
           <SidebarContent
@@ -278,7 +287,7 @@ export default function OwnerLayout({
         </Drawer>
       )}
 
-      <Layout>
+      <Layout style={{ overflow: "hidden" }}>
         <Header
           style={{
             padding: "0 24px 0 0",
@@ -289,6 +298,7 @@ export default function OwnerLayout({
             justifyContent: "space-between",
             boxShadow: "0 1px 4px rgba(0,21,41,0.08)",
             zIndex: 9,
+            flexShrink: 0,
           }}
         >
           <Space size={0}>
@@ -365,6 +375,7 @@ export default function OwnerLayout({
             margin: isMobile ? "12px" : "24px",
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
+            overflowY: "auto",
           }}
         >
           {children}

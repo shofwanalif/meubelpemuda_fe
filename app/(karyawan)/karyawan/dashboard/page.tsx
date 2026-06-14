@@ -53,7 +53,7 @@ export default function DashboardPage() {
         onReset={handleReset} // Pasang prop reset
       />
 
-      <StatsCards data={summary?.data} loading={loadingSummary} />
+      <StatsCards data={summary} loading={loadingSummary} />
     </div>
   );
 }
