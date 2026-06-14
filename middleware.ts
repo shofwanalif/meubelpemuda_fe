@@ -3,22 +3,38 @@ import { NextRequest, NextResponse } from "next/server";
 async function getSessionFromServer(req: NextRequest) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-  // meneruskan cookie dari browser ke Express
+  // Meneruskan cookie dari browser ke Express
   const cookieHeader = req.headers.get("cookie") || "";
 
+  // Siapkan header tambahan agar request dari middleware ini 
+  // tidak ditolak oleh proteksi CSRF / trustedOrigins Better Auth
+  const fetchHeaders = new Headers();
+  fetchHeaders.set("Cookie", cookieHeader);
+  
+  // Teruskan Origin
+  if (req.headers.get("origin")) {
+    fetchHeaders.set("Origin", req.headers.get("origin")!);
+  } else {
+    // Fallback menggunakan origin dari URL request Next.js
+    fetchHeaders.set("Origin", req.nextUrl.origin);
+  }
+
+  // Teruskan User-Agent jika diperlukan oleh backend
+  if (req.headers.get("user-agent")) {
+    fetchHeaders.set("User-Agent", req.headers.get("user-agent")!);
+  }
+
   try {
-    // Panggil endpoint /api/auth/get-session (Bawaan Better Auth di backend kamu)
+    // Panggil endpoint /api/auth/get-session (Bawaan Better Auth di backend)
     const response = await fetch(`${apiUrl}/api/auth/get-session`, {
       method: "GET",
-      headers: {
-        Cookie: cookieHeader,
-      },
+      headers: fetchHeaders,
     });
 
     if (!response.ok) return null;
     return await response.json(); // Mengembalikan object { session, user }
   } catch (error) {
-    return error;
+    return null;
   }
 }
 
@@ -74,5 +90,5 @@ export async function middleware(request: NextRequest) {
 
 // Tentukan rute mana saja yang HARUS melewati middleware ini
 export const config = {
-  matcher: [],
+  matcher: ["/owner/:path*", "/karyawan/:path*", "/login"],
 };
